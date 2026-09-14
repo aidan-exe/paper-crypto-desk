@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "mode": "PAPER_ONLY",
+    "start_bankroll_zar": 500,
+    "assets": ["BTC", "ETH"],
+    "strategy": "v1: on each wake fetch public BTC-USD/ETH-USD; if 24h change >= +3% paper-buy up to 40% free cash; if 24h change <= -3% paper-sell half holding; fee 0.1%/fill; max 2 notions",
+    "started_at": "2026-09-14T12:52:40.432304+00:00",
+    "warning": "Simulated money only. No real exchange orders."
+  },
+  "cash_zar": 500.0,
+  "positions": {},
+  "equity_zar": 500.0,
+  "trades": [],
+  "equity_curve": [
+    {"ts": "2026-09-14T12:52:40.432358+00:00", "equity_zar": 500.0},
+    {"ts": "2026-09-14T12:53:31.117581+00:00", "equity_zar": 500.0}
+  ],
+  "last_mark": {
+    "ts": "2026-09-14T12:53:31.117581+00:00",
+    "source": "kraken_ticker + frankfurter_usdzar",
+    "usdzar": 16.1587,
+    "usdzar_note": "frankfurter.app latest USD->ZAR (date 2026-09-11)",
+    "btc_usd": 77700.0,
+    "btc_24h_pct": 1.1716,
+    "eth_usd": 2505.99,
+    "eth_24h_pct": 1.2133,
+    "positions_marked": {},
+    "decisions": [
+      "BTC 24h 1.172% — no signal (need ≥+3% buy or ≤-3% sell)",
+      "ETH 24h 1.213% — no signal (need ≥+3% buy or ≤-3% sell)"
+    ],
+    "fills": 0
+  }
+}
