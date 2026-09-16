@@ -8,7 +8,9 @@ import {
   formatTs,
   formatUsd,
   formatZar,
+  markPriceList,
   parseLedger,
+  parsePosition,
   recordEntries,
   tradeColumns,
   tradeRows,
@@ -47,6 +49,21 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+function formatTradeCell(col: string, value: unknown): string {
+  if (col === "ts") return formatTs(String(value ?? ""));
+  if (typeof value === "number") {
+    if (col === "price_usd" || col === "avg_entry_usd") return formatUsd(value);
+    if (col.endsWith("_zar")) return formatZar(value);
+  }
+  return formatCell(value);
+}
+
+function sideClass(side: unknown): string {
+  if (side === "BUY") return "text-emerald-400";
+  if (side === "SELL") return "text-rose-400";
+  return "text-zinc-300";
+}
+
 export function Dashboard() {
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +99,10 @@ export function Dashboard() {
   const markedEntries = ledger
     ? recordEntries(ledger.last_mark.positions_marked ?? {})
     : [];
+  const markPrices = useMemo(
+    () => (ledger ? markPriceList(ledger) : []),
+    [ledger],
+  );
 
   if (error) {
     return (
@@ -121,6 +142,11 @@ export function Dashboard() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
             Paper crypto desk
+            {ledger.meta.strategy_version ? (
+              <span className="ml-2 align-middle font-mono text-sm font-medium tracking-normal text-amber-400/90">
+                {ledger.meta.strategy_version}
+              </span>
+            ) : null}
           </h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-400">
             {ledger.meta.strategy}
@@ -153,11 +179,28 @@ export function Dashboard() {
         </div>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Universe</p>
-          <p className="mt-2 font-mono text-2xl font-semibold text-zinc-50 sm:text-3xl">
-            {ledger.meta.assets.join(" · ") || "—"}
-          </p>
-          <p className="mt-1 font-mono text-sm text-zinc-500">
-            {positionEntries.length} open · {ledger.trades.length} fills logged
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(ledger.meta.assets.length > 0 ? ledger.meta.assets : ["—"]).map(
+              (asset) => (
+                <span
+                  key={asset}
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-sm font-semibold text-zinc-100"
+                >
+                  {asset}
+                </span>
+              ),
+            )}
+          </div>
+          <p className="mt-2 font-mono text-sm text-zinc-500">
+            {positionEntries.length} open
+            {ledger.meta.max_open_notions != null
+              ? ` / ${ledger.meta.max_open_notions}`
+              : ""}{" "}
+            · {ledger.trades.length} fills logged
+            {ledger.meta.thresholds_pct?.buy != null &&
+            ledger.meta.thresholds_pct?.sell != null
+              ? ` · ±${ledger.meta.thresholds_pct.buy}%`
+              : ""}
           </p>
         </div>
       </div>
@@ -176,20 +219,46 @@ export function Dashboard() {
                 <thead>
                   <tr className="border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-500">
                     <th className="py-2 pr-3 font-medium">Asset</th>
-                    <th className="py-2 font-medium">Holding</th>
+                    <th className="py-2 pr-3 font-medium">Qty</th>
+                    <th className="py-2 pr-3 font-medium">Avg</th>
+                    <th className="py-2 font-medium">Cost</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {positionEntries.map(([asset, holding]) => (
-                    <tr key={asset} className="border-b border-zinc-800/70">
-                      <td className="py-2 pr-3 font-mono font-medium text-zinc-200">
-                        {asset}
-                      </td>
-                      <td className="py-2 font-mono text-zinc-300">
-                        {formatCell(holding)}
-                      </td>
-                    </tr>
-                  ))}
+                  {positionEntries.map(([asset, holding]) => {
+                    const pos = parsePosition(holding);
+                    return (
+                      <tr key={asset} className="border-b border-zinc-800/70">
+                        <td className="py-2 pr-3 font-mono font-medium text-zinc-200">
+                          {asset}
+                        </td>
+                        {pos ? (
+                          <>
+                            <td className="py-2 pr-3 font-mono text-zinc-300">
+                              {pos.qty !== undefined ? formatCell(pos.qty) : "—"}
+                            </td>
+                            <td className="py-2 pr-3 font-mono text-zinc-300">
+                              {pos.avg_entry_usd !== undefined
+                                ? formatUsd(pos.avg_entry_usd)
+                                : "—"}
+                            </td>
+                            <td className="py-2 font-mono text-zinc-300">
+                              {pos.cost_zar !== undefined
+                                ? formatZar(pos.cost_zar)
+                                : "—"}
+                            </td>
+                          </>
+                        ) : (
+                          <td
+                            className="py-2 font-mono text-zinc-300"
+                            colSpan={3}
+                          >
+                            {formatCell(holding)}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -215,10 +284,13 @@ export function Dashboard() {
                   {trades.map((trade, i) => (
                     <tr key={i} className="border-b border-zinc-800/70">
                       {tradeCols.map((col) => (
-                        <td key={col} className="py-2 pr-3 font-mono text-zinc-300">
-                          {col === "ts"
-                            ? formatTs(String(trade.ts ?? ""))
-                            : formatCell(trade[col])}
+                        <td
+                          key={col}
+                          className={`py-2 pr-3 font-mono ${
+                            col === "side" ? sideClass(trade.side) : "text-zinc-300"
+                          }`}
+                        >
+                          {formatTradeCell(col, trade[col])}
                         </td>
                       ))}
                     </tr>
@@ -231,73 +303,69 @@ export function Dashboard() {
       </div>
 
       <Panel title="Last mark / decisions">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">Marked</dt>
-              <dd className="mt-1 font-mono text-zinc-200">{formatTs(ledger.last_mark.ts)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">Source</dt>
-              <dd className="mt-1 font-mono text-zinc-200">{ledger.last_mark.source}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">USD/ZAR</dt>
-              <dd className="mt-1 font-mono text-zinc-200">
-                {ledger.last_mark.usdzar.toFixed(4)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">Fills this wake</dt>
-              <dd className="mt-1 font-mono text-zinc-200">{ledger.last_mark.fills ?? 0}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">BTC-USD</dt>
-              <dd className="mt-1 font-mono text-zinc-200">
-                {ledger.last_mark.btc_usd !== undefined
-                  ? formatUsd(ledger.last_mark.btc_usd)
-                  : "—"}
-                {ledger.last_mark.btc_24h_pct !== undefined && (
-                  <span className={`ml-2 ${pctClass(ledger.last_mark.btc_24h_pct)}`}>
-                    {formatPct(ledger.last_mark.btc_24h_pct)}
-                  </span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wider text-zinc-500">ETH-USD</dt>
-              <dd className="mt-1 font-mono text-zinc-200">
-                {ledger.last_mark.eth_usd !== undefined
-                  ? formatUsd(ledger.last_mark.eth_usd)
-                  : "—"}
-                {ledger.last_mark.eth_24h_pct !== undefined && (
-                  <span className={`ml-2 ${pctClass(ledger.last_mark.eth_24h_pct)}`}>
-                    {formatPct(ledger.last_mark.eth_24h_pct)}
-                  </span>
-                )}
-              </dd>
-            </div>
-          </dl>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm sm:grid-cols-4">
           <div>
-            <p className="text-xs uppercase tracking-wider text-zinc-500">Decisions</p>
-            {ledger.last_mark.decisions && ledger.last_mark.decisions.length > 0 ? (
-              <ul className="mt-2 space-y-2">
-                {ledger.last_mark.decisions.map((line) => (
-                  <li
-                    key={line}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 font-mono text-xs leading-5 text-zinc-300 sm:text-sm"
-                  >
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState message="No decisions recorded" />
-            )}
-            {ledger.last_mark.usdzar_note && (
-              <p className="mt-3 text-xs text-zinc-500">{ledger.last_mark.usdzar_note}</p>
-            )}
+            <dt className="text-xs uppercase tracking-wider text-zinc-500">Marked</dt>
+            <dd className="mt-1 font-mono text-zinc-200">{formatTs(ledger.last_mark.ts)}</dd>
           </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-zinc-500">Source</dt>
+            <dd className="mt-1 font-mono text-zinc-200">{ledger.last_mark.source}</dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-zinc-500">USD/ZAR</dt>
+            <dd className="mt-1 font-mono text-zinc-200">
+              {ledger.last_mark.usdzar.toFixed(4)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wider text-zinc-500">Fills this wake</dt>
+            <dd className="mt-1 font-mono text-zinc-200">{ledger.last_mark.fills ?? 0}</dd>
+          </div>
+        </dl>
+        {markPrices.length === 0 ? (
+          <EmptyState message="No mark prices recorded" />
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            {markPrices.map((row) => (
+              <div
+                key={row.asset}
+                className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3"
+              >
+                <p className="text-xs uppercase tracking-wider text-zinc-500">
+                  {row.asset}-USD
+                </p>
+                <p className="mt-1 font-mono text-zinc-100">
+                  {row.usd !== undefined ? formatUsd(row.usd) : "—"}
+                </p>
+                {row.chg_pct !== undefined ? (
+                  <p className={`mt-0.5 font-mono text-sm ${pctClass(row.chg_pct)}`}>
+                    {formatPct(row.chg_pct)}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-4">
+          <p className="text-xs uppercase tracking-wider text-zinc-500">Decisions</p>
+          {ledger.last_mark.decisions && ledger.last_mark.decisions.length > 0 ? (
+            <ul className="mt-2 space-y-2">
+              {ledger.last_mark.decisions.map((line) => (
+                <li
+                  key={line}
+                  className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 font-mono text-xs leading-5 text-zinc-300 sm:text-sm"
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState message="No decisions recorded" />
+          )}
+          {ledger.last_mark.usdzar_note ? (
+            <p className="mt-3 text-xs text-zinc-500">{ledger.last_mark.usdzar_note}</p>
+          ) : null}
         </div>
         {markedEntries.length === 0 ? (
           <p className="mt-4 text-xs text-zinc-600">No marked positions.</p>

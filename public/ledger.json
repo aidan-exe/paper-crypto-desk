@@ -2,33 +2,79 @@
   "meta": {
     "mode": "PAPER_ONLY",
     "start_bankroll_zar": 500,
-    "assets": ["BTC", "ETH"],
-    "strategy": "v1: on each wake fetch public BTC-USD/ETH-USD; if 24h change >= +3% paper-buy up to 40% free cash; if 24h change <= -3% paper-sell half holding; fee 0.1%/fill; max 2 notions",
+    "assets": ["BTC", "ETH", "SOL", "XRP", "DOT", "AVAX", "LINK"],
+    "strategy": "v1.2: wake fetch public USD prices for BTC,ETH,SOL,XRP,DOT,AVAX,LINK; if 24h/session change >= +1.5% paper-buy up to 40% free cash (strongest signals first); if <= -1.5% paper-sell half holding; fee 0.1%/fill; max 3 open notions",
     "started_at": "2026-09-14T12:52:40.432304+00:00",
-    "warning": "Simulated money only. No real exchange orders."
+    "warning": "Simulated money only. No real exchange orders.",
+    "strategy_version": "v1.2",
+    "thresholds_pct": { "buy": 1.5, "sell": -1.5 },
+    "strategy_updated_at": "2026-09-16T12:21:17.400923+00:00",
+    "strategy_note": "Aidan 2026-09-16: ±1.5%; universe BTC+ETH+SOL+XRP+DOT+AVAX+LINK; max 3 positions. PAPER ONLY.",
+    "max_open_notions": 3
   },
-  "cash_zar": 500.0,
-  "positions": {},
-  "equity_zar": 500.0,
-  "trades": [],
+  "cash_zar": 300.0,
+  "positions": {
+    "DOT": {
+      "qty": 12.557797767037517,
+      "avg_entry_usd": 0.9779,
+      "cost_zar": 199.8
+    }
+  },
+  "equity_zar": 499.8,
+  "trades": [
+    {
+      "ts": "2026-09-16T12:21:17.400923+00:00",
+      "side": "BUY",
+      "asset": "DOT",
+      "qty": 12.557797767037517,
+      "price_usd": 0.9779,
+      "usdzar": 16.27,
+      "spend_zar": 200.0,
+      "fee_zar": 0.2,
+      "rationale": "v1.2: DOT 3.635% >= +1.5%; bought ~40% free cash"
+    }
+  ],
   "equity_curve": [
-    {"ts": "2026-09-14T12:52:40.432358+00:00", "equity_zar": 500.0},
-    {"ts": "2026-09-14T12:53:31.117581+00:00", "equity_zar": 500.0}
+    { "ts": "2026-09-14T12:52:40.432358+00:00", "equity_zar": 500.0 },
+    { "ts": "2026-09-14T12:53:31.117581+00:00", "equity_zar": 500.0 },
+    { "ts": "2026-09-14T13:07:26.487232+00:00", "equity_zar": 500.0 },
+    { "ts": "2026-09-15T08:33:47.159696+00:00", "equity_zar": 500.0 },
+    { "ts": "2026-09-15T13:01:06.040443+00:00", "equity_zar": 500.0 },
+    { "ts": "2026-09-16T08:04:33.053124+00:00", "equity_zar": 500.0 },
+    { "ts": "2026-09-16T12:18:22.147669+00:00", "equity_zar": 500.0 },
+    { "ts": "2026-09-16T12:21:17.400923+00:00", "equity_zar": 499.8 }
   ],
   "last_mark": {
-    "ts": "2026-09-14T12:53:31.117581+00:00",
-    "source": "kraken_ticker + frankfurter_usdzar",
-    "usdzar": 16.1587,
-    "usdzar_note": "frankfurter.app latest USD->ZAR (date 2026-09-11)",
-    "btc_usd": 77700.0,
-    "btc_24h_pct": 1.1716,
-    "eth_usd": 2505.99,
-    "eth_24h_pct": 1.2133,
-    "positions_marked": {},
+    "ts": "2026-09-16T12:21:17.400923+00:00",
+    "source": "kraken_ticker + exchangerate_api_usdzar",
+    "usdzar": 16.27,
+    "prices": {
+      "BTC": { "usd": 76006.0, "chg_pct": 0.5569 },
+      "ETH": { "usd": 2411.53, "chg_pct": 0.6154 },
+      "SOL": { "usd": 97.64, "chg_pct": 0.8573 },
+      "XRP": { "usd": 1.28789, "chg_pct": 0.4289 },
+      "DOT": { "usd": 0.9779, "chg_pct": 3.635 },
+      "AVAX": { "usd": 7.292, "chg_pct": 0.5238 },
+      "LINK": { "usd": 10.82211, "chg_pct": -0.5511 }
+    },
+    "positions_marked": {
+      "DOT": {
+        "qty": 12.557797767037517,
+        "price_usd": 0.9779,
+        "value_zar": 199.8,
+        "chg_pct": 3.635
+      }
+    },
     "decisions": [
-      "BTC 24h 1.172% — no signal (need ≥+3% buy or ≤-3% sell)",
-      "ETH 24h 1.213% — no signal (need ≥+3% buy or ≤-3% sell)"
+      "v1.2: DOT 3.635% >= +1.5%; bought ~40% free cash",
+      "BTC 0.557% — no signal",
+      "ETH 0.615% — no signal",
+      "SOL 0.857% — no signal",
+      "XRP 0.429% — no signal",
+      "AVAX 0.524% — no signal",
+      "LINK -0.551% — no signal"
     ],
-    "fills": 0
+    "fills": 1,
+    "strategy_version": "v1.2"
   }
 }
